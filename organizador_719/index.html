@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organizador de Documentos – Contratação 719/2026</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>📁 Organizador de Documentos para Habilitação</h1>
+    <p>Contratação nº 719/2026 &nbsp;|&nbsp; TR 753/2026 &nbsp;|&nbsp; UFPA – Campus Castanhal &nbsp;|&nbsp; Proc. 23073.075241/2026-00</p>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="globalBar" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="globalLabel">0 de 9 documentos anexados</div>
+  </div>
+
+  <!-- IDENTIFICAÇÃO DA EMPRESA -->
+  <div class="id-section">
+    <h2>📋 Identificação da Empresa</h2>
+    <div class="id-field"><label>Razão Social</label><input type="text" id="razao" placeholder="Nome completo da empresa"></div>
+    <div class="id-field"><label>CNPJ</label><input type="text" id="cnpj" placeholder="00.000.000/0000-00"></div>
+    <div class="id-field"><label>Representante Legal</label><input type="text" id="rep" placeholder="Nome do responsável"></div>
+    <div class="id-field"><label>E-mail para notificações</label><input type="text" id="email" placeholder="email@empresa.com.br"></div>
+    <div class="id-field"><label>Telefone</label><input type="text" id="tel" placeholder="(00) 00000-0000"></div>
+    <div class="id-field"><label>Data de preenchimento</label><input type="date" id="datapreench"></div>
+  </div>
+
+  <!-- SEÇÕES DE DOCUMENTOS -->
+  <div class="sections" id="sectionsContainer"></div>
+
+  <!-- BOTÕES -->
+  <div class="actions">
+    <button class="btn btn-primary" onclick="abrirRelatorio()">📊 Gerar Relatório de Pendências</button>
+    <button class="btn btn-success" onclick="salvarDados()">💾 Salvar Progresso</button>
+    <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimir</button>
+    <button class="btn btn-package" onclick="exportarPacote()">📦 Baixar Pacote Completo (ZIP)</button>
+  </div>
+
+  <!-- MODAL RELATÓRIO -->
+  <div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">
+    <div class="modal" id="modalContent">
+      <h2>📊 Relatório de Pendências</h2>
+      <p class="meta" id="relMeta"></p>
+      <div class="summary-cards" id="relSummary"></div>
+      <div id="relBody"></div>
+      <button class="btn btn-primary modal-close" onclick="document.getElementById('modalOverlay').classList.remove('open')">Fechar</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

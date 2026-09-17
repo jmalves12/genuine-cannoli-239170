@@ -12,7 +12,10 @@
     "rewrites": [
       {
         "source": "**",
-        "destination": "/index.html"
+        "run": {
+          "serviceId": "organizador-719-2026",
+          "region": "southamerica-east1"
+        }
       }
     ]
   }

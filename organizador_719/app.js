@@ -3,6 +3,68 @@
 //  app.js
 // ============================================================
 
+// ── PERSISTÊNCIA DE ARQUIVOS (localStorage em base64) ────────
+// O app é aberto direto do arquivo (file://), onde o IndexedDB
+// não funciona de forma confiável (bloqueio de "backing store" em
+// vários navegadores). Por isso o conteúdo do arquivo é convertido
+// para base64 e guardado no localStorage junto com o restante dos
+// dados, sobrevivendo a fechar/reabrir o navegador.
+const LS_ARQUIVOS_KEY = 'org719_2026_arquivos';
+
+function blobParaBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function base64ParaFile(dataURL, nome, tipo) {
+  const base64 = dataURL.split(',')[1] || '';
+  const binario = atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return new File([bytes], nome, { type: tipo });
+}
+
+function lerRegistrosLS() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_ARQUIVOS_KEY) || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+async function salvarArquivosLS(itemId, arquivos) {
+  try {
+    const registros = await Promise.all(arquivos.map(async f => ({
+      nome: f.name, tipo: f.type, dataURL: await blobParaBase64(f)
+    })));
+    const todos = lerRegistrosLS();
+    todos[itemId] = registros;
+    localStorage.setItem(LS_ARQUIVOS_KEY, JSON.stringify(todos));
+  } catch (e) {
+    console.warn('⚠️ Não foi possível salvar o arquivo localmente:', e);
+    alert('⚠️ Não foi possível salvar este arquivo no navegador (o espaço de armazenamento local pode estar cheio). Ele continua anexado nesta sessão, mas pode ser perdido se a página for recarregada — gere o pacote ZIP antes de fechar.');
+  }
+}
+
+function removerArquivosLS(itemId) {
+  try {
+    const todos = lerRegistrosLS();
+    delete todos[itemId];
+    localStorage.setItem(LS_ARQUIVOS_KEY, JSON.stringify(todos));
+  } catch (e) { /* nada a fazer */ }
+}
+
+function carregarArquivosLS(itemId) {
+  const registros = lerRegistrosLS()[itemId] || [];
+  return registros.map(r => base64ParaFile(r.dataURL, r.nome, r.tipo));
+}
+
+let carregandoArquivos = true;
+
 // ── DADOS DOS DOCUMENTOS ────────────────────────────────────
 const DOCS = [
   {
@@ -206,6 +268,7 @@ function handleFile(id, input) {
 
   renderPreview(id);
   salvarDados();
+  salvarArquivosLS(id, estado[id].fileObjs);
   atualizarProgresso();
 }
 
@@ -238,6 +301,11 @@ function removeFile(id, idx) {
   if (estado[id].fileObjs) estado[id].fileObjs.splice(idx, 1);
   renderPreview(id);
   salvarDados();
+  if (estado[id].fileObjs && estado[id].fileObjs.length > 0) {
+    salvarArquivosLS(id, estado[id].fileObjs);
+  } else {
+    removerArquivosLS(id);
+  }
   atualizarProgresso();
 }
 
@@ -305,7 +373,7 @@ function salvarDados() {
 function carregarDados() {
   try {
     const raw = localStorage.getItem('org719_2026');
-    if (!raw) return;
+    if (!raw) { carregandoArquivos = false; return; }
 
     const dados = JSON.parse(raw);
     if (dados.razao)       document.getElementById('razao').value       = dados.razao;
@@ -323,9 +391,27 @@ function carregarDados() {
         if (obs && estado[it.id]) obs.value = estado[it.id].obs || '';
       }));
     }
+
+    restaurarArquivosPersistidos();
   } catch(e) {
     console.warn('⚠️ Erro ao carregar dados:', e);
+    carregandoArquivos = false;
   }
+}
+
+function restaurarArquivosPersistidos() {
+  DOCS.forEach(sec => sec.itens.forEach(it => {
+    if (estado[it.id] && estado[it.id].files && estado[it.id].files.length > 0) {
+      const arquivos = carregarArquivosLS(it.id);
+      if (arquivos.length > 0) {
+        estado[it.id].fileObjs = arquivos;
+        renderPreview(it.id);
+      }
+    }
+  }));
+
+  carregandoArquivos = false;
+  atualizarProgresso();
 }
 
 // ── RELATÓRIO ───────────────────────────────────────────────
@@ -402,6 +488,11 @@ function exportarPacote() {
     return;
   }
 
+  if (carregandoArquivos) {
+    alert('Ainda estamos carregando os documentos salvos. Aguarde alguns segundos e tente novamente.');
+    return;
+  }
+
   const razao = document.getElementById('razao').value || 'Não informado';
   const cnpj  = document.getElementById('cnpj').value  || 'Não informado';
 
@@ -417,7 +508,7 @@ function exportarPacote() {
   }));
 
   if (semConteudo.length > 0) {
-    alert('⚠️ Estes documentos foram anexados em outra sessão e o arquivo não está mais disponível no navegador (o conteúdo não é salvo entre recarregamentos):\n\n- ' +
+    alert('⚠️ Estes documentos perderam o conteúdo salvo neste navegador (ex: modo anônimo, limpeza de dados do site, ou outro dispositivo):\n\n- ' +
       semConteudo.join('\n- ') +
       '\n\nPor favor, anexe-os novamente antes de gerar o pacote.');
     return;

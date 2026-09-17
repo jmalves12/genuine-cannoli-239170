@@ -1,5 +1,5 @@
 /* ============================================================
-   ORGANIZADOR DE DOCUMENTOS – Contratação 719/2026
+   ORGANIZADOR DE DOCUMENTOS PARA HABILITAÇÃO
    style.css
    ============================================================ */
 
@@ -16,6 +16,62 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #
 }
 .header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
 .header p  { font-size: 12px; opacity: 0.8; }
+
+.header-user {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+.btn-logout {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+/* ── TELA DE LOGIN ── */
+.login-overlay {
+  position: fixed; inset: 0;
+  background: linear-gradient(135deg, #0a1628 0%, #0d2744 50%, #102f52 100%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.login-overlay[hidden] { display: none; }
+.login-box {
+  background: white;
+  border-radius: 16px;
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  text-align: center;
+}
+.login-box h1 { font-size: 18px; color: #0d1f33; margin-bottom: 6px; }
+.login-sub { font-size: 12.5px; color: #64748b; margin-bottom: 22px; }
+.login-field { text-align: left; margin-bottom: 14px; }
+.login-field label { display: block; font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 600; }
+.login-field input {
+  width: 100%;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  outline: none;
+}
+.login-field input:focus { border-color: #1a4a7a; }
+.login-msg { font-size: 12px; min-height: 16px; margin-bottom: 10px; color: #dc2626; font-weight: 600; }
+.login-btn { width: 100%; margin-bottom: 8px; }
 
 /* ── BARRA DE PROGRESSO ── */
 .progress-bar-wrap {

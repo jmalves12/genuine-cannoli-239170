@@ -1,5 +1,5 @@
 // ============================================================
-//  ORGANIZADOR DE DOCUMENTOS – Contratação 719/2026
+//  ORGANIZADOR DE DOCUMENTOS PARA HABILITAÇÃO
 //  app.js
 // ============================================================
 
@@ -182,6 +182,78 @@ const DOCS = [
   }
 ];
 
+// ── AUTENTICAÇÃO E SINCRONIZAÇÃO (Firebase) ──────────────────
+let usuarioAtual = null;
+
+function traduzErroAuth(e) {
+  const mapa = {
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/user-not-found': 'Usuário não encontrado.',
+    'auth/wrong-password': 'Senha incorreta.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/email-already-in-use': 'Este e-mail já está cadastrado. Tente entrar.',
+    'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres).',
+    'auth/network-request-failed': 'Falha de conexão. Verifique sua internet.'
+  };
+  return mapa[e.code] || ('Erro: ' + e.message);
+}
+
+function fazerLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const msg = document.getElementById('loginMsg');
+  msg.textContent = '';
+
+  if (!email || !senha) { msg.textContent = 'Preencha e-mail e senha.'; return; }
+
+  auth.signInWithEmailAndPassword(email, senha).catch(e => {
+    msg.textContent = traduzErroAuth(e);
+  });
+}
+
+function criarConta() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const msg = document.getElementById('loginMsg');
+  msg.textContent = '';
+
+  if (!email || !senha) { msg.textContent = 'Preencha e-mail e senha.'; return; }
+  if (senha.length < 6) { msg.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; return; }
+
+  auth.createUserWithEmailAndPassword(email, senha).catch(e => {
+    msg.textContent = traduzErroAuth(e);
+  });
+}
+
+function fazerLogout() {
+  auth.signOut();
+}
+
+let appConstruido = false;
+
+auth.onAuthStateChanged(user => {
+  usuarioAtual = user;
+  const loginOverlay = document.getElementById('loginOverlay');
+  const appContent = document.getElementById('appContent');
+
+  if (user) {
+    loginOverlay.hidden = true;
+    appContent.hidden = false;
+    document.getElementById('userEmailLabel').textContent = user.email;
+    document.getElementById('loginMsg').textContent = '';
+    document.getElementById('loginSenha').value = '';
+
+    if (!appConstruido) {
+      appConstruido = true;
+      buildUI();
+    }
+    carregarDados();
+  } else {
+    appContent.hidden = true;
+    loginOverlay.hidden = false;
+  }
+});
+
 // ── ESTADO GLOBAL ───────────────────────────────────────────
 const estado = {};
 
@@ -207,9 +279,6 @@ function buildUI() {
 
     container.appendChild(div);
   });
-
-  carregarDados();
-  atualizarProgresso();
 }
 
 // ── HTML DE CADA ITEM ───────────────────────────────────────
@@ -342,6 +411,16 @@ function atualizarProgresso() {
 }
 
 // ── SALVAR / CARREGAR ────────────────────────────────────────
+// Remove os objetos File (não serializáveis) antes de gravar no
+// localStorage ou no Firestore — só nomes e observações são sincronizados.
+function estadoParaSalvar() {
+  const copia = {};
+  Object.keys(estado).forEach(id => {
+    copia[id] = { files: estado[id].files || [], obs: estado[id].obs || '' };
+  });
+  return copia;
+}
+
 function salvarDados() {
   // Salva observações no estado
   DOCS.forEach(sec => sec.itens.forEach(it => {
@@ -359,17 +438,25 @@ function salvarDados() {
     email:      document.getElementById('email').value,
     tel:        document.getElementById('tel').value,
     datapreench:document.getElementById('datapreench').value,
-    estado
+    estado: estadoParaSalvar()
   };
 
+  let ok = true;
   try {
     localStorage.setItem('org719_2026', JSON.stringify(dados));
     console.log('✅ Dados salvos no localStorage');
-    return true;
   } catch(e) {
-    console.warn('⚠️ Não foi possível salvar:', e);
-    return false;
+    console.warn('⚠️ Não foi possível salvar localmente:', e);
+    ok = false;
   }
+
+  if (usuarioAtual) {
+    db.collection('usuarios').doc(usuarioAtual.uid).set(dados, { merge: true })
+      .then(() => console.log('☁️ Dados sincronizados com a nuvem'))
+      .catch(e => console.warn('⚠️ Não foi possível sincronizar com a nuvem:', e));
+  }
+
+  return ok;
 }
 
 function salvarProgressoManual() {
@@ -391,12 +478,40 @@ function mostrarToast(mensagem, erro) {
   toastTimeout = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-function carregarDados() {
+async function carregarDados() {
   try {
-    const raw = localStorage.getItem('org719_2026');
-    if (!raw) { carregandoArquivos = false; return; }
+    // Limpa estado de uma sessão/usuário anterior antes de recarregar
+    Object.keys(estado).forEach(k => delete estado[k]);
+    ['razao', 'cnpj', 'rep', 'email', 'tel', 'datapreench'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    DOCS.forEach(sec => sec.itens.forEach(it => {
+      const obs = document.getElementById('obs_' + it.id);
+      if (obs) obs.value = '';
+      renderPreview(it.id);
+    }));
 
-    const dados = JSON.parse(raw);
+    let dados = null;
+
+    if (usuarioAtual) {
+      try {
+        const snap = await db.collection('usuarios').doc(usuarioAtual.uid).get();
+        if (snap.exists) {
+          dados = snap.data();
+          console.log('☁️ Dados carregados da nuvem');
+        }
+      } catch (e) {
+        console.warn('⚠️ Não foi possível buscar dados da nuvem, usando cópia local:', e);
+      }
+    }
+
+    if (!dados) {
+      const raw = localStorage.getItem('org719_2026');
+      if (raw) dados = JSON.parse(raw);
+    }
+
+    if (!dados) { carregandoArquivos = false; atualizarProgresso(); return; }
+
     if (dados.razao)       document.getElementById('razao').value       = dados.razao;
     if (dados.cnpj)        document.getElementById('cnpj').value        = dados.cnpj;
     if (dados.rep)         document.getElementById('rep').value         = dados.rep;
@@ -417,6 +532,7 @@ function carregarDados() {
   } catch(e) {
     console.warn('⚠️ Erro ao carregar dados:', e);
     carregandoArquivos = false;
+    atualizarProgresso();
   }
 }
 
@@ -543,8 +659,7 @@ function exportarPacote() {
   }
 
   const zip = new JSZip();
-  let resumo = `PACOTE DE DOCUMENTOS – CONTRATAÇÃO 719/2026\n`;
-  resumo += `TR 753/2026 | UFPA – Campus Castanhal | Proc. 23073.075241/2026-00\n`;
+  let resumo = `PACOTE DE DOCUMENTOS PARA HABILITAÇÃO\n`;
   resumo += `================================================\n\n`;
   resumo += `Empresa: ${razao}\nCNPJ: ${cnpj}\nGerado em: ${new Date().toLocaleString('pt-BR')}\n\n`;
 
@@ -595,4 +710,6 @@ function fecharModal(e) {
 }
 
 // ── START ────────────────────────────────────────────────────
-buildUI();
+// A construção da tela (buildUI) e o carregamento dos dados
+// (carregarDados) agora são disparados pelo listener de autenticação
+// acima, assim que o usuário faz login.

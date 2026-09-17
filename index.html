@@ -3,16 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Organizador de Documentos – Contratação 719/2026</title>
+  <title>Organizador de Documentos para Habilitação</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
 </head>
 <body>
+
+  <!-- TELA DE LOGIN -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <h1>📁 Organizador de Documentos</h1>
+      <p class="login-sub">Entre para acessar seus dados de qualquer dispositivo</p>
+
+      <div class="login-field">
+        <label>E-mail</label>
+        <input type="email" id="loginEmail" placeholder="seuemail@exemplo.com">
+      </div>
+      <div class="login-field">
+        <label>Senha</label>
+        <input type="password" id="loginSenha" placeholder="Mínimo 6 caracteres">
+      </div>
+
+      <div class="login-msg" id="loginMsg"></div>
+
+      <button class="btn btn-primary login-btn" onclick="fazerLogin()">Entrar</button>
+      <button class="btn btn-outline login-btn" onclick="criarConta()">Criar conta nova</button>
+    </div>
+  </div>
+
+  <!-- CONTEÚDO DO APP (só aparece após login) -->
+  <div id="appContent" hidden>
 
   <!-- HEADER -->
   <div class="header">
     <h1>📁 Organizador de Documentos para Habilitação</h1>
-    <p>Contratação nº 719/2026 &nbsp;|&nbsp; TR 753/2026 &nbsp;|&nbsp; UFPA – Campus Castanhal &nbsp;|&nbsp; Proc. 23073.075241/2026-00</p>
+    <div class="header-user">
+      <span id="userEmailLabel"></span>
+      <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+    </div>
     <div class="progress-bar-wrap">
       <div class="progress-bar" id="globalBar" style="width:0%"></div>
     </div>
@@ -54,6 +86,8 @@
       <button class="btn btn-primary modal-close" onclick="document.getElementById('modalOverlay').classList.remove('open')">Fechar</button>
     </div>
   </div>
+
+  </div> <!-- fim #appContent -->
 
   <script src="app.js"></script>
 </body>

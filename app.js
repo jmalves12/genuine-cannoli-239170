@@ -365,9 +365,30 @@ function salvarDados() {
   try {
     localStorage.setItem('org719_2026', JSON.stringify(dados));
     console.log('✅ Dados salvos no localStorage');
+    return true;
   } catch(e) {
     console.warn('⚠️ Não foi possível salvar:', e);
+    return false;
   }
+}
+
+function salvarProgressoManual() {
+  const ok = salvarDados();
+  if (ok) {
+    mostrarToast('✅ Progresso salvo neste navegador');
+  } else {
+    mostrarToast('⚠️ Não foi possível salvar — armazenamento cheio ou bloqueado', true);
+  }
+}
+
+let toastTimeout;
+function mostrarToast(mensagem, erro) {
+  const toast = document.getElementById('toastSalvo');
+  toast.textContent = mensagem;
+  toast.style.background = erro ? '#dc2626' : '#16a34a';
+  toast.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 function carregarDados() {

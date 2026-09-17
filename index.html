@@ -36,10 +36,13 @@
   <!-- BOTÕES -->
   <div class="actions">
     <button class="btn btn-primary" onclick="abrirRelatorio()">📊 Gerar Relatório de Pendências</button>
-    <button class="btn btn-success" onclick="salvarDados()">💾 Salvar Progresso</button>
+    <button class="btn btn-success" onclick="salvarProgressoManual()">💾 Salvar Progresso</button>
     <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimir</button>
     <button class="btn btn-package" onclick="exportarPacote()">📦 Baixar Pacote Completo (ZIP)</button>
   </div>
+
+  <!-- CONFIRMAÇÃO DE SALVAMENTO -->
+  <div class="toast" id="toastSalvo">✅ Progresso salvo neste navegador</div>
 
   <!-- MODAL RELATÓRIO -->
   <div class="modal-overlay" id="modalOverlay" onclick="fecharModal(event)">

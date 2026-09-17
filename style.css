@@ -228,6 +228,29 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #
 
 .modal-close { margin-top: 20px; width: 100%; }
 
+/* ── TOAST DE CONFIRMAÇÃO ── */
+.toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #16a34a;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  z-index: 200;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* ── PRINT ── */
 @media print {
   .actions, .upload-area input, button { display: none; }

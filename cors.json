@@ -1,0 +1,11 @@
+[
+  {
+    "origin": [
+      "https://organizador-719-2026.web.app",
+      "https://organizador-719-2026.firebaseapp.com",
+      "https://organizador-719-2026-419496775122.southamerica-east1.run.app"
+    ],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

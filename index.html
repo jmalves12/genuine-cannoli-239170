@@ -117,9 +117,10 @@
   <div class="modal-overlay" id="propostaOverlay" onclick="fecharModalProposta(event)">
     <div class="modal" id="propostaModalContent">
       <h2>🧾 Carta Proposta Comercial</h2>
-      <p class="meta">Gerada conforme a Lei nº 14.133/2021 — confira o padrão do edital antes de enviar.</p>
-      <pre class="carta-preview" id="cartaPropostaTexto"></pre>
+      <p class="meta">Gerada conforme a Lei nº 14.133/2021 — o texto abaixo é editável, ajuste como precisar antes de enviar.</p>
+      <textarea class="carta-preview carta-editavel" id="cartaPropostaTexto" oninput="salvarCartaPropostaEditada()"></textarea>
       <div class="modal-actions">
+        <button class="btn btn-outline" onclick="restaurarCartaPropostaGerada()">↺ Restaurar texto original</button>
         <button class="btn btn-success" onclick="baixarCartaProposta()">⬇️ Baixar (.txt)</button>
         <button class="btn btn-outline" onclick="document.getElementById('propostaOverlay').classList.remove('open')">Fechar</button>
       </div>

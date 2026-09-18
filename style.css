@@ -169,7 +169,15 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #
   overflow-y: auto;
   color: #1a1a2e;
 }
-.modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+.carta-editavel {
+  display: block;
+  width: 100%;
+  min-height: 55vh;
+  resize: vertical;
+  outline: none;
+}
+.carta-editavel:focus { border-color: #1a4a7a; }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 .modal-actions .btn { flex: 1; }
 
 /* ── SEÇÕES ── */

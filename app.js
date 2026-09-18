@@ -504,7 +504,8 @@ function salvarDados() {
     tel:        document.getElementById('tel').value,
     datapreench:document.getElementById('datapreench').value,
     estado: estadoParaSalvar(),
-    itensProposta: itensProposta
+    itensProposta: itensProposta,
+    cartaPropostaEditada: cartaPropostaEditada
   };
 
   let ok = true;
@@ -549,6 +550,7 @@ async function carregarDados() {
     // Limpa estado de uma sessão/usuário anterior antes de recarregar
     Object.keys(estado).forEach(k => delete estado[k]);
     itensProposta = [];
+    cartaPropostaEditada = '';
     ['razao', 'cnpj', 'rep', 'email', 'tel', 'datapreench'].forEach(id => {
       document.getElementById(id).value = '';
     });
@@ -598,6 +600,7 @@ async function carregarDados() {
     if (Array.isArray(dados.itensProposta) && dados.itensProposta.length > 0) {
       itensProposta = dados.itensProposta;
     }
+    cartaPropostaEditada = dados.cartaPropostaEditada || '';
     renderItensProposta();
 
     await restaurarArquivosPersistidos();
@@ -774,7 +777,7 @@ function exportarPacote() {
 
   const itensComDados = itensProposta.filter(it => it.descricao && it.descricao.trim());
   if (itensComDados.length > 0) {
-    zip.file('00 - Carta Proposta.txt', gerarTextoCartaProposta());
+    zip.file('00 - Carta Proposta.txt', textoAtualCartaProposta());
   }
 
   zip.generateAsync({ type: 'blob' }).then(blob => {
@@ -931,6 +934,12 @@ function gerarTextoCartaProposta() {
   return txt;
 }
 
+// Texto da carta proposta após edição manual do usuário. Quando
+// preenchido, tem prioridade sobre o texto gerado automaticamente
+// (na visualização, no download e no pacote ZIP), e é sincronizado
+// entre dispositivos junto com os demais dados.
+let cartaPropostaEditada = '';
+
 function abrirCartaProposta() {
   salvarDados();
 
@@ -940,7 +949,7 @@ function abrirCartaProposta() {
     return;
   }
 
-  document.getElementById('cartaPropostaTexto').textContent = gerarTextoCartaProposta();
+  document.getElementById('cartaPropostaTexto').value = cartaPropostaEditada || gerarTextoCartaProposta();
   document.getElementById('propostaOverlay').classList.add('open');
 }
 
@@ -950,9 +959,25 @@ function fecharModalProposta(e) {
   }
 }
 
+function salvarCartaPropostaEditada() {
+  cartaPropostaEditada = document.getElementById('cartaPropostaTexto').value;
+  salvarDados();
+}
+
+function restaurarCartaPropostaGerada() {
+  if (!confirm('Isso vai substituir o texto editado pelo texto gerado automaticamente a partir dos itens. Deseja continuar?')) return;
+  cartaPropostaEditada = '';
+  document.getElementById('cartaPropostaTexto').value = gerarTextoCartaProposta();
+  salvarDados();
+}
+
+function textoAtualCartaProposta() {
+  return cartaPropostaEditada || gerarTextoCartaProposta();
+}
+
 function baixarCartaProposta() {
   const razao = document.getElementById('razao').value || 'empresa';
-  const texto = gerarTextoCartaProposta();
+  const texto = textoAtualCartaProposta();
   const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

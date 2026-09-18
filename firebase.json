@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "storage": {
     "rules": "storage.rules"
   },
@@ -12,6 +15,7 @@
       "package.json",
       "package-lock.json",
       "storage.rules",
+      "firestore.rules",
       "Dockerfile"
     ],
     "rewrites": [

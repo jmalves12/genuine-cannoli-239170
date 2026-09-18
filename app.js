@@ -3,64 +3,38 @@
 //  app.js
 // ============================================================
 
-// ── PERSISTÊNCIA DE ARQUIVOS (localStorage em base64) ────────
-// O app é aberto direto do arquivo (file://), onde o IndexedDB
-// não funciona de forma confiável (bloqueio de "backing store" em
-// vários navegadores). Por isso o conteúdo do arquivo é convertido
-// para base64 e guardado no localStorage junto com o restante dos
-// dados, sobrevivendo a fechar/reabrir o navegador.
-const LS_ARQUIVOS_KEY = 'org719_2026_arquivos';
+// ── PERSISTÊNCIA DE ARQUIVOS (Firebase Storage) ───────────────
+// Os arquivos anexados são enviados para o Firebase Storage, na pasta
+// do usuário logado (usuarios/{uid}/{itemId}/{nome}), o que permite
+// que fiquem disponíveis em qualquer dispositivo após o login — ao
+// contrário do localStorage, que fica preso ao navegador/dispositivo
+// onde o arquivo foi anexado.
 
-function blobParaBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
+function caminhoStorage(itemId, nome) {
+  return `usuarios/${usuarioAtual.uid}/${itemId}/${Date.now()}_${nome}`;
 }
 
-function base64ParaFile(dataURL, nome, tipo) {
-  const base64 = dataURL.split(',')[1] || '';
-  const binario = atob(base64);
-  const bytes = new Uint8Array(binario.length);
-  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
-  return new File([bytes], nome, { type: tipo });
+async function uploadArquivoStorage(itemId, file) {
+  const path = caminhoStorage(itemId, file.name);
+  const ref = storage.ref().child(path);
+  await ref.put(file);
+  const url = await ref.getDownloadURL();
+  return { nome: file.name, tipo: file.type, path, url };
 }
 
-function lerRegistrosLS() {
+async function removerArquivoStorage(path) {
+  if (!path) return;
   try {
-    return JSON.parse(localStorage.getItem(LS_ARQUIVOS_KEY) || '{}');
+    await storage.ref().child(path).delete();
   } catch (e) {
-    return {};
+    console.warn('⚠️ Não foi possível remover o arquivo da nuvem:', e);
   }
 }
 
-async function salvarArquivosLS(itemId, arquivos) {
-  try {
-    const registros = await Promise.all(arquivos.map(async f => ({
-      nome: f.name, tipo: f.type, dataURL: await blobParaBase64(f)
-    })));
-    const todos = lerRegistrosLS();
-    todos[itemId] = registros;
-    localStorage.setItem(LS_ARQUIVOS_KEY, JSON.stringify(todos));
-  } catch (e) {
-    console.warn('⚠️ Não foi possível salvar o arquivo localmente:', e);
-    alert('⚠️ Não foi possível salvar este arquivo no navegador (o espaço de armazenamento local pode estar cheio). Ele continua anexado nesta sessão, mas pode ser perdido se a página for recarregada — gere o pacote ZIP antes de fechar.');
-  }
-}
-
-function removerArquivosLS(itemId) {
-  try {
-    const todos = lerRegistrosLS();
-    delete todos[itemId];
-    localStorage.setItem(LS_ARQUIVOS_KEY, JSON.stringify(todos));
-  } catch (e) { /* nada a fazer */ }
-}
-
-function carregarArquivosLS(itemId) {
-  const registros = lerRegistrosLS()[itemId] || [];
-  return registros.map(r => base64ParaFile(r.dataURL, r.nome, r.tipo));
+async function baixarArquivoStorage(meta) {
+  const resposta = await fetch(meta.url);
+  const blob = await resposta.blob();
+  return new File([blob], meta.nome, { type: meta.tipo });
 }
 
 let carregandoArquivos = true;
@@ -323,21 +297,34 @@ function triggerUpload(id) {
   document.getElementById('finput_' + id).click();
 }
 
-function handleFile(id, input) {
+async function handleFile(id, input) {
   if (!input.files.length) return;
   if (!estado[id]) estado[id] = { files: [], obs: '' };
   if (!estado[id].fileObjs) estado[id].fileObjs = [];
+  if (!estado[id].meta) estado[id].meta = [];
 
-  Array.from(input.files).forEach(f => {
-    if (!estado[id].files.includes(f.name)) {
+  const novos = Array.from(input.files).filter(f => !estado[id].files.includes(f.name));
+  input.value = '';
+  if (novos.length === 0) return;
+
+  const label = document.getElementById('ulabel_' + id);
+  const textoOriginal = label.innerHTML;
+  label.innerHTML = '⏳ Enviando arquivo(s) para a nuvem...';
+
+  try {
+    for (const f of novos) {
+      const meta = await uploadArquivoStorage(id, f);
       estado[id].files.push(f.name);
       estado[id].fileObjs.push(f);
+      estado[id].meta.push(meta);
     }
-  });
+    salvarDados();
+  } catch (e) {
+    console.warn('⚠️ Não foi possível enviar o arquivo para a nuvem:', e);
+    alert('⚠️ Não foi possível enviar o arquivo para a nuvem. Verifique sua conexão e tente novamente.');
+  }
 
   renderPreview(id);
-  salvarDados();
-  salvarArquivosLS(id, estado[id].fileObjs);
   atualizarProgresso();
 }
 
@@ -365,17 +352,18 @@ function renderPreview(id) {
   }
 }
 
-function removeFile(id, idx) {
+async function removeFile(id, idx) {
+  const meta = estado[id].meta ? estado[id].meta[idx] : null;
+
   estado[id].files.splice(idx, 1);
   if (estado[id].fileObjs) estado[id].fileObjs.splice(idx, 1);
+  if (estado[id].meta) estado[id].meta.splice(idx, 1);
+
   renderPreview(id);
   salvarDados();
-  if (estado[id].fileObjs && estado[id].fileObjs.length > 0) {
-    salvarArquivosLS(id, estado[id].fileObjs);
-  } else {
-    removerArquivosLS(id);
-  }
   atualizarProgresso();
+
+  if (meta && meta.path) await removerArquivoStorage(meta.path);
 }
 
 // ── SEÇÕES ──────────────────────────────────────────────────
@@ -412,11 +400,17 @@ function atualizarProgresso() {
 
 // ── SALVAR / CARREGAR ────────────────────────────────────────
 // Remove os objetos File (não serializáveis) antes de gravar no
-// localStorage ou no Firestore — só nomes e observações são sincronizados.
+// localStorage ou no Firestore. Os metadados dos arquivos (nome, tipo
+// e URL do Firebase Storage) são sincronizados, permitindo restaurar
+// os arquivos de verdade em qualquer dispositivo após o login.
 function estadoParaSalvar() {
   const copia = {};
   Object.keys(estado).forEach(id => {
-    copia[id] = { files: estado[id].files || [], obs: estado[id].obs || '' };
+    copia[id] = {
+      files: estado[id].files || [],
+      obs: estado[id].obs || '',
+      meta: estado[id].meta || []
+    };
   });
   return copia;
 }
@@ -528,7 +522,7 @@ async function carregarDados() {
       }));
     }
 
-    restaurarArquivosPersistidos();
+    await restaurarArquivosPersistidos();
   } catch(e) {
     console.warn('⚠️ Erro ao carregar dados:', e);
     carregandoArquivos = false;
@@ -536,16 +530,26 @@ async function carregarDados() {
   }
 }
 
-function restaurarArquivosPersistidos() {
+async function restaurarArquivosPersistidos() {
+  const tarefas = [];
+
   DOCS.forEach(sec => sec.itens.forEach(it => {
-    if (estado[it.id] && estado[it.id].files && estado[it.id].files.length > 0) {
-      const arquivos = carregarArquivosLS(it.id);
-      if (arquivos.length > 0) {
-        estado[it.id].fileObjs = arquivos;
-        renderPreview(it.id);
-      }
+    const item = estado[it.id];
+    if (item && item.meta && item.meta.length > 0) {
+      tarefas.push(
+        Promise.all(item.meta.map(m => baixarArquivoStorage(m)))
+          .then(arquivos => {
+            item.fileObjs = arquivos;
+            renderPreview(it.id);
+          })
+          .catch(e => {
+            console.warn(`⚠️ Não foi possível baixar os arquivos de ${it.id}:`, e);
+          })
+      );
     }
   }));
+
+  await Promise.all(tarefas);
 
   carregandoArquivos = false;
   atualizarProgresso();
@@ -645,9 +649,9 @@ function exportarPacote() {
   }));
 
   if (semConteudo.length > 0) {
-    alert('⚠️ Estes documentos perderam o conteúdo salvo neste navegador (ex: modo anônimo, limpeza de dados do site, ou outro dispositivo):\n\n- ' +
+    alert('⚠️ Não foi possível baixar o conteúdo destes documentos da nuvem (verifique sua conexão):\n\n- ' +
       semConteudo.join('\n- ') +
-      '\n\nPor favor, anexe-os novamente antes de gerar o pacote.');
+      '\n\nPor favor, tente novamente ou anexe-os de novo antes de gerar o pacote.');
     return;
   }
 

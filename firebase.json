@@ -1,4 +1,7 @@
 {
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
@@ -7,7 +10,9 @@
       "**/node_modules/**",
       "server.js",
       "package.json",
-      "package-lock.json"
+      "package-lock.json",
+      "storage.rules",
+      "Dockerfile"
     ],
     "rewrites": [
       {

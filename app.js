@@ -232,9 +232,79 @@ auth.onAuthStateChanged(user => {
 // ── ESTADO GLOBAL ───────────────────────────────────────────
 const estado = {};
 
+// ── ITENS DA LICITAÇÃO / CARTA PROPOSTA ───────────────────────
+let itensProposta = [];
+
+function itemPropostaVazio() {
+  return { descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '' };
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function formatarMoeda(v) {
+  return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function valorTotalItem(item) {
+  const qtd = parseFloat(item.quantidade) || 0;
+  const unit = parseFloat(item.valorUnitario) || 0;
+  return qtd * unit;
+}
+
+function renderItensProposta() {
+  if (itensProposta.length === 0) itensProposta.push(itemPropostaVazio());
+
+  const tbody = document.getElementById('itensTableBody');
+  tbody.innerHTML = itensProposta.map((item, i) => `
+    <tr>
+      <td style="text-align:center">${i + 1}</td>
+      <td><input type="text" value="${escapeHtml(item.descricao)}" placeholder="Ex: Placa-mãe ATX socket AM5" oninput="atualizarItemProposta(${i}, 'descricao', this.value)"></td>
+      <td><input type="text" value="${escapeHtml(item.marca)}" placeholder="Marca/modelo" oninput="atualizarItemProposta(${i}, 'marca', this.value)"></td>
+      <td><input type="text" value="${escapeHtml(item.unidade)}" placeholder="UN" oninput="atualizarItemProposta(${i}, 'unidade', this.value)"></td>
+      <td><input type="number" min="0" step="1" value="${escapeHtml(item.quantidade)}" oninput="atualizarItemProposta(${i}, 'quantidade', this.value)"></td>
+      <td><input type="number" min="0" step="0.01" value="${escapeHtml(item.valorUnitario)}" oninput="atualizarItemProposta(${i}, 'valorUnitario', this.value)"></td>
+      <td class="itens-row-total">${formatarMoeda(valorTotalItem(item))}</td>
+      <td>${itensProposta.length > 1 ? `<button class="itens-row-remove" onclick="removerItemProposta(${i})" title="Remover item">✕</button>` : ''}</td>
+    </tr>
+  `).join('');
+
+  atualizarValorTotalProposta();
+}
+
+function atualizarItemProposta(i, campo, valor) {
+  itensProposta[i][campo] = valor;
+  document.getElementById('itensTableBody').children[i].querySelector('.itens-row-total').textContent =
+    formatarMoeda(valorTotalItem(itensProposta[i]));
+  atualizarValorTotalProposta();
+  salvarDados();
+}
+
+function adicionarItemProposta() {
+  itensProposta.push(itemPropostaVazio());
+  renderItensProposta();
+  salvarDados();
+}
+
+function removerItemProposta(i) {
+  itensProposta.splice(i, 1);
+  renderItensProposta();
+  salvarDados();
+}
+
+function atualizarValorTotalProposta() {
+  const total = itensProposta.reduce((soma, item) => soma + valorTotalItem(item), 0);
+  document.getElementById('itensValorTotal').textContent = formatarMoeda(total);
+}
+
 // ── INICIALIZAÇÃO ───────────────────────────────────────────
 function buildUI() {
   const container = document.getElementById('sectionsContainer');
+
+  renderItensProposta();
 
   DOCS.forEach(sec => {
     const div = document.createElement('div');
@@ -433,7 +503,8 @@ function salvarDados() {
     email:      document.getElementById('email').value,
     tel:        document.getElementById('tel').value,
     datapreench:document.getElementById('datapreench').value,
-    estado: estadoParaSalvar()
+    estado: estadoParaSalvar(),
+    itensProposta: itensProposta
   };
 
   let ok = true;
@@ -477,6 +548,7 @@ async function carregarDados() {
   try {
     // Limpa estado de uma sessão/usuário anterior antes de recarregar
     Object.keys(estado).forEach(k => delete estado[k]);
+    itensProposta = [];
     ['razao', 'cnpj', 'rep', 'email', 'tel', 'datapreench'].forEach(id => {
       document.getElementById(id).value = '';
     });
@@ -505,7 +577,7 @@ async function carregarDados() {
       if (raw) dados = JSON.parse(raw);
     }
 
-    if (!dados) { carregandoArquivos = false; atualizarProgresso(); return; }
+    if (!dados) { renderItensProposta(); carregandoArquivos = false; atualizarProgresso(); return; }
 
     if (dados.razao)       document.getElementById('razao').value       = dados.razao;
     if (dados.cnpj)        document.getElementById('cnpj').value        = dados.cnpj;
@@ -522,6 +594,11 @@ async function carregarDados() {
         if (obs && estado[it.id]) obs.value = estado[it.id].obs || '';
       }));
     }
+
+    if (Array.isArray(dados.itensProposta) && dados.itensProposta.length > 0) {
+      itensProposta = dados.itensProposta;
+    }
+    renderItensProposta();
 
     await restaurarArquivosPersistidos();
   } catch(e) {
@@ -695,6 +772,11 @@ function exportarPacote() {
 
   zip.file('00 - Resumo do Pacote.txt', resumo);
 
+  const itensComDados = itensProposta.filter(it => it.descricao && it.descricao.trim());
+  if (itensComDados.length > 0) {
+    zip.file('00 - Carta Proposta.txt', gerarTextoCartaProposta());
+  }
+
   zip.generateAsync({ type: 'blob' }).then(blob => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -712,6 +794,174 @@ function fecharModal(e) {
   if (e.target === document.getElementById('modalOverlay')) {
     document.getElementById('modalOverlay').classList.remove('open');
   }
+}
+
+// ── CARTA PROPOSTA (Lei nº 14.133/2021) ───────────────────────
+// Monta uma carta proposta comercial com a estrutura geral exigida
+// pela Nova Lei de Licitações: identificação do proponente, objeto,
+// itens com preços, declarações de aceitação do edital/manutenção
+// de preços e validade da proposta, e local/data para assinatura.
+// O padrão exato de cada edital pode variar — confira o modelo do
+// órgão licitante antes de enviar.
+
+const UNIDADES_EXTENSO = ['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove'];
+const DEZ_A_DEZENOVE = ['dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+const DEZENAS_EXTENSO = ['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+const CENTENAS_EXTENSO = ['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+
+function centenaPorExtenso(n) {
+  if (n === 0) return '';
+  if (n === 100) return 'cem';
+  const c = Math.floor(n / 100), d = Math.floor((n % 100) / 10), u = n % 10;
+  const partes = [];
+  if (c > 0) partes.push(CENTENAS_EXTENSO[c]);
+  if (d === 1) partes.push(DEZ_A_DEZENOVE[u]);
+  else {
+    if (d > 0) partes.push(DEZENAS_EXTENSO[d]);
+    if (u > 0) partes.push(UNIDADES_EXTENSO[u]);
+  }
+  return partes.join(' e ');
+}
+
+function numeroPorExtenso(n) {
+  n = Math.floor(n);
+  if (n === 0) return 'zero';
+
+  const grupos = [
+    { valor: 1000000000, singular: 'bilhão', plural: 'bilhões' },
+    { valor: 1000000, singular: 'milhão', plural: 'milhões' },
+    { valor: 1000, singular: 'mil', plural: 'mil' },
+    { valor: 1, singular: '', plural: '' }
+  ];
+
+  const partes = [];
+  let resto = n;
+  grupos.forEach(g => {
+    const qtd = Math.floor(resto / g.valor);
+    if (qtd > 0) {
+      resto -= qtd * g.valor;
+      if (g.valor === 1) {
+        partes.push(centenaPorExtenso(qtd));
+      } else if (g.valor === 1000) {
+        partes.push(qtd === 1 ? 'mil' : `${centenaPorExtenso(qtd)} mil`);
+      } else {
+        partes.push(`${centenaPorExtenso(qtd)} ${qtd === 1 ? g.singular : g.plural}`);
+      }
+    }
+  });
+
+  return partes.join(' e ');
+}
+
+function valorPorExtenso(valor) {
+  const reais = Math.floor(valor);
+  const centavos = Math.round((valor - reais) * 100);
+  let texto = `${numeroPorExtenso(reais)} ${reais === 1 ? 'real' : 'reais'}`;
+  if (centavos > 0) {
+    texto += ` e ${numeroPorExtenso(centavos)} ${centavos === 1 ? 'centavo' : 'centavos'}`;
+  }
+  return texto;
+}
+
+function gerarTextoCartaProposta() {
+  const razao = document.getElementById('razao').value || '[RAZÃO SOCIAL NÃO INFORMADA]';
+  const cnpj  = document.getElementById('cnpj').value  || '[CNPJ NÃO INFORMADO]';
+  const rep   = document.getElementById('rep').value   || '[REPRESENTANTE LEGAL NÃO INFORMADO]';
+  const email = document.getElementById('email').value || '[E-MAIL NÃO INFORMADO]';
+  const tel   = document.getElementById('tel').value   || '[TELEFONE NÃO INFORMADO]';
+  const data  = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+  const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
+  const valorTotal = itens.reduce((soma, it) => soma + valorTotalItem(it), 0);
+
+  let txt = '';
+  txt += `CARTA PROPOSTA COMERCIAL\n`;
+  txt += `(elaborada em conformidade com a Lei nº 14.133, de 1º de abril de 2021)\n`;
+  txt += `${'='.repeat(64)}\n\n`;
+
+  txt += `À Comissão de Contratação / Agente de Contratação\n\n`;
+
+  txt += `PROPONENTE\n`;
+  txt += `Razão Social: ${razao}\n`;
+  txt += `CNPJ: ${cnpj}\n`;
+  txt += `Representante Legal: ${rep}\n`;
+  txt += `E-mail para notificações: ${email}\n`;
+  txt += `Telefone: ${tel}\n\n`;
+
+  txt += `Prezados Senhores,\n\n`;
+  txt += `Apresentamos nossa proposta comercial para fornecimento dos itens abaixo relacionados, ` +
+         `declarando estarmos cientes e de acordo com todas as condições estabelecidas no edital e ` +
+         `seus anexos, e que os preços ofertados incluem todos os custos diretos e indiretos, tributos, ` +
+         `encargos sociais, trabalhistas, previdenciários, fiscais e comerciais, frete, seguro e quaisquer ` +
+         `outros ônus que incidam sobre o objeto desta contratação, não cabendo pleito posterior de ` +
+         `acréscimo (art. 92, VI, da Lei nº 14.133/2021).\n\n`;
+
+  txt += `ITENS DA PROPOSTA\n`;
+  txt += `${'-'.repeat(64)}\n`;
+  itens.forEach((it, i) => {
+    const qtd = parseFloat(it.quantidade) || 0;
+    const unit = parseFloat(it.valorUnitario) || 0;
+    txt += `Item ${i + 1}: ${it.descricao}\n`;
+    if (it.marca) txt += `  Marca/Modelo: ${it.marca}\n`;
+    txt += `  Unidade: ${it.unidade || 'UN'} | Quantidade: ${qtd} | Valor Unitário: ${formatarMoeda(unit)} | Valor Total: ${formatarMoeda(qtd * unit)}\n\n`;
+  });
+  txt += `${'-'.repeat(64)}\n`;
+  txt += `VALOR TOTAL DA PROPOSTA: ${formatarMoeda(valorTotal)}\n`;
+  txt += `(${valorPorExtenso(valorTotal)})\n\n`;
+
+  txt += `PRAZO DE VALIDADE DA PROPOSTA\n`;
+  txt += `Esta proposta é válida por 60 (sessenta) dias corridos, contados da data de abertura ` +
+         `do certame, ou por prazo diverso caso o edital assim estabeleça expressamente (art. 90 c/c ` +
+         `art. 92 da Lei nº 14.133/2021).\n\n`;
+
+  txt += `DECLARAÇÕES\n`;
+  txt += `- Declaramos pleno conhecimento e aceitação das regras e condições gerais da contratação, ` +
+         `constantes do edital e seus anexos;\n`;
+  txt += `- Declaramos que nos preços propostos estão incluídas todas as despesas necessárias à ` +
+         `execução integral do objeto;\n`;
+  txt += `- Declaramos, para fins do disposto no edital, que nossa empresa cumpre plenamente os ` +
+         `requisitos de habilitação exigidos.\n\n`;
+
+  txt += `${data.charAt(0).toUpperCase() + data.slice(1)}.\n\n\n`;
+  txt += `${'_'.repeat(40)}\n`;
+  txt += `${razao}\n`;
+  txt += `${rep}\n`;
+  txt += `Representante Legal\n`;
+
+  return txt;
+}
+
+function abrirCartaProposta() {
+  salvarDados();
+
+  const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
+  if (itens.length === 0) {
+    alert('⚠️ Preencha ao menos um item (com descrição) na tabela "Itens da Licitação" antes de gerar a carta proposta.');
+    return;
+  }
+
+  document.getElementById('cartaPropostaTexto').textContent = gerarTextoCartaProposta();
+  document.getElementById('propostaOverlay').classList.add('open');
+}
+
+function fecharModalProposta(e) {
+  if (e.target === document.getElementById('propostaOverlay')) {
+    document.getElementById('propostaOverlay').classList.remove('open');
+  }
+}
+
+function baixarCartaProposta() {
+  const razao = document.getElementById('razao').value || 'empresa';
+  const texto = gerarTextoCartaProposta();
+  const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Carta_Proposta_${razao.replace(/[^\w\-]+/g, '_')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── START ────────────────────────────────────────────────────

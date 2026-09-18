@@ -63,12 +63,37 @@
     <div class="id-field"><label>Data de preenchimento</label><input type="date" id="datapreench"></div>
   </div>
 
+  <!-- ITENS DA LICITAÇÃO / CARTA PROPOSTA -->
+  <div class="id-section itens-section">
+    <h2>🧾 Itens da Licitação (gera a Carta Proposta automaticamente)</h2>
+    <div class="itens-table-wrap">
+      <table class="itens-table" id="itensTable">
+        <thead>
+          <tr>
+            <th style="width:38px">Item</th>
+            <th>Descrição do produto/serviço</th>
+            <th style="width:110px">Marca/Modelo</th>
+            <th style="width:70px">Unidade</th>
+            <th style="width:70px">Qtd.</th>
+            <th style="width:110px">Valor Unit. (R$)</th>
+            <th style="width:110px">Valor Total (R$)</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="itensTableBody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-outline itens-add-btn" onclick="adicionarItemProposta()">+ Adicionar item</button>
+    <div class="itens-total-row">Valor total da proposta: <span id="itensValorTotal">R$ 0,00</span></div>
+  </div>
+
   <!-- SEÇÕES DE DOCUMENTOS -->
   <div class="sections" id="sectionsContainer"></div>
 
   <!-- BOTÕES -->
   <div class="actions">
     <button class="btn btn-primary" onclick="abrirRelatorio()">📊 Gerar Relatório de Pendências</button>
+    <button class="btn btn-proposta" onclick="abrirCartaProposta()">🧾 Gerar Carta Proposta</button>
     <button class="btn btn-success" onclick="salvarProgressoManual()">💾 Salvar Progresso</button>
     <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimir</button>
     <button class="btn btn-package" onclick="exportarPacote()">📦 Baixar Pacote Completo (ZIP)</button>
@@ -85,6 +110,19 @@
       <div class="summary-cards" id="relSummary"></div>
       <div id="relBody"></div>
       <button class="btn btn-primary modal-close" onclick="document.getElementById('modalOverlay').classList.remove('open')">Fechar</button>
+    </div>
+  </div>
+
+  <!-- MODAL CARTA PROPOSTA -->
+  <div class="modal-overlay" id="propostaOverlay" onclick="fecharModalProposta(event)">
+    <div class="modal" id="propostaModalContent">
+      <h2>🧾 Carta Proposta Comercial</h2>
+      <p class="meta">Gerada conforme a Lei nº 14.133/2021 — confira o padrão do edital antes de enviar.</p>
+      <pre class="carta-preview" id="cartaPropostaTexto"></pre>
+      <div class="modal-actions">
+        <button class="btn btn-success" onclick="baixarCartaProposta()">⬇️ Baixar (.txt)</button>
+        <button class="btn btn-outline" onclick="document.getElementById('propostaOverlay').classList.remove('open')">Fechar</button>
+      </div>
     </div>
   </div>
 

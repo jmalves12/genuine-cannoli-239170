@@ -1,8 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /usuarios/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    // Documento único compartilhado: qualquer usuário autenticado (com
+    // qualquer login) lê e escreve os mesmos dados, como uma conta de
+    // equipe em vez de área privada por usuário.
+    match /workspace/{doc} {
+      allow read, write: if request.auth != null;
     }
   }
 }

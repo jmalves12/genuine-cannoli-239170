@@ -236,7 +236,7 @@ const estado = {};
 let itensProposta = [];
 
 function itemPropostaVazio() {
-  return { descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '' };
+  return { codigo: '', descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '' };
 }
 
 function escapeHtml(s) {
@@ -262,6 +262,7 @@ function renderItensProposta() {
   tbody.innerHTML = itensProposta.map((item, i) => `
     <tr>
       <td style="text-align:center">${i + 1}</td>
+      <td><input type="text" value="${escapeHtml(item.codigo)}" placeholder="ITM-001" oninput="atualizarItemProposta(${i}, 'codigo', this.value)"></td>
       <td><input type="text" value="${escapeHtml(item.descricao)}" placeholder="Ex: Placa-mãe ATX socket AM5" oninput="atualizarItemProposta(${i}, 'descricao', this.value)"></td>
       <td><input type="text" value="${escapeHtml(item.marca)}" placeholder="Marca/modelo" oninput="atualizarItemProposta(${i}, 'marca', this.value)"></td>
       <td><input type="text" value="${escapeHtml(item.unidade)}" placeholder="UN" oninput="atualizarItemProposta(${i}, 'unidade', this.value)"></td>
@@ -904,7 +905,7 @@ function gerarTextoCartaProposta() {
   itens.forEach((it, i) => {
     const qtd = parseFloat(it.quantidade) || 0;
     const unit = parseFloat(it.valorUnitario) || 0;
-    txt += `Item ${i + 1}: ${it.descricao}\n`;
+    txt += `Item ${i + 1}${it.codigo ? ` (${it.codigo})` : ''}: ${it.descricao}\n`;
     if (it.marca) txt += `  Marca/Modelo: ${it.marca}\n`;
     txt += `  Unidade: ${it.unidade || 'UN'} | Quantidade: ${qtd} | Valor Unitário: ${formatarMoeda(unit)} | Valor Total: ${formatarMoeda(qtd * unit)}\n\n`;
   });

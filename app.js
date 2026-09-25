@@ -236,7 +236,7 @@ const estado = {};
 let itensProposta = [];
 
 function itemPropostaVazio() {
-  return { codigo: '', descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '' };
+  return { codigo: '', descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '', link: '' };
 }
 
 function escapeHtml(s) {
@@ -269,6 +269,10 @@ function renderItensProposta() {
       <td><input type="number" min="0" step="1" value="${escapeHtml(item.quantidade)}" oninput="atualizarItemProposta(${i}, 'quantidade', this.value)"></td>
       <td><input type="number" min="0" step="0.01" value="${escapeHtml(item.valorUnitario)}" oninput="atualizarItemProposta(${i}, 'valorUnitario', this.value)"></td>
       <td class="itens-row-total">${formatarMoeda(valorTotalItem(item))}</td>
+      <td class="itens-link-cell">
+        <input type="url" value="${escapeHtml(item.link)}" placeholder="https://..." oninput="atualizarItemProposta(${i}, 'link', this.value)">
+        ${item.link ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="itens-link-abrir" title="Abrir link">🔗</a>` : ''}
+      </td>
       <td>${itensProposta.length > 1 ? `<button class="itens-row-remove" onclick="removerItemProposta(${i})" title="Remover item">✕</button>` : ''}</td>
     </tr>
   `).join('');

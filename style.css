@@ -133,7 +133,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #
 /* ── ITENS DA LICITAÇÃO / CARTA PROPOSTA ── */
 .itens-section { display: block; margin-top: 16px; }
 .itens-table-wrap { overflow-x: auto; margin-top: 10px; }
-.itens-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 640px; }
+.itens-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
 .itens-table th {
   text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em;
   color: #64748b; padding: 6px 8px; border-bottom: 1.5px solid #e2e8f0;
@@ -149,6 +149,13 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #
 .itens-row-remove {
   background: none; border: none; color: #b91c1c; font-size: 15px; cursor: pointer; line-height: 1;
 }
+.itens-link-cell { display: flex; align-items: center; gap: 4px; }
+.itens-link-cell input { flex: 1; min-width: 90px; }
+.itens-link-abrir {
+  flex-shrink: 0; text-decoration: none; font-size: 14px; padding: 4px;
+  border-radius: 6px; transition: background .15s;
+}
+.itens-link-abrir:hover { background: #eff6ff; }
 .itens-add-btn { margin-top: 12px; padding: 7px 16px; font-size: 12px; }
 .itens-total-row {
   margin-top: 12px; text-align: right; font-size: 14px; font-weight: 800; color: #0d1f33;

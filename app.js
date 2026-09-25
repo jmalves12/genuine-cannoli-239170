@@ -508,6 +508,9 @@ function salvarDados() {
     email:      document.getElementById('email').value,
     tel:        document.getElementById('tel').value,
     datapreench:document.getElementById('datapreench').value,
+    orgao:      document.getElementById('orgao').value,
+    unidadeCompradora: document.getElementById('unidadeCompradora').value,
+    pncpId:     document.getElementById('pncpId').value,
     estado: estadoParaSalvar(),
     itensProposta: itensProposta,
     cartaPropostaEditada: cartaPropostaEditada
@@ -556,7 +559,7 @@ async function carregarDados() {
     Object.keys(estado).forEach(k => delete estado[k]);
     itensProposta = [];
     cartaPropostaEditada = '';
-    ['razao', 'cnpj', 'rep', 'email', 'tel', 'datapreench'].forEach(id => {
+    ['razao', 'cnpj', 'rep', 'email', 'tel', 'datapreench', 'orgao', 'unidadeCompradora', 'pncpId'].forEach(id => {
       document.getElementById(id).value = '';
     });
     DOCS.forEach(sec => sec.itens.forEach(it => {
@@ -592,6 +595,9 @@ async function carregarDados() {
     if (dados.email)       document.getElementById('email').value       = dados.email;
     if (dados.tel)         document.getElementById('tel').value         = dados.tel;
     if (dados.datapreench) document.getElementById('datapreench').value = dados.datapreench;
+    if (dados.orgao)              document.getElementById('orgao').value              = dados.orgao;
+    if (dados.unidadeCompradora)  document.getElementById('unidadeCompradora').value  = dados.unidadeCompradora;
+    if (dados.pncpId)             document.getElementById('pncpId').value             = dados.pncpId;
 
     if (dados.estado) {
       Object.assign(estado, dados.estado);
@@ -877,6 +883,9 @@ function gerarTextoCartaProposta() {
   const rep   = document.getElementById('rep').value   || '[REPRESENTANTE LEGAL NÃO INFORMADO]';
   const email = document.getElementById('email').value || '[E-MAIL NÃO INFORMADO]';
   const tel   = document.getElementById('tel').value   || '[TELEFONE NÃO INFORMADO]';
+  const orgao = document.getElementById('orgao').value;
+  const unidadeCompradora = document.getElementById('unidadeCompradora').value;
+  const pncpId = document.getElementById('pncpId').value;
   const data  = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
@@ -887,7 +896,10 @@ function gerarTextoCartaProposta() {
   txt += `(elaborada em conformidade com a Lei nº 14.133, de 1º de abril de 2021)\n`;
   txt += `${'='.repeat(64)}\n\n`;
 
-  txt += `À Comissão de Contratação / Agente de Contratação\n\n`;
+  txt += `À ${orgao || '[ÓRGÃO / ENTIDADE NÃO INFORMADO]'}\n`;
+  if (unidadeCompradora) txt += `Unidade Compradora: ${unidadeCompradora}\n`;
+  if (pncpId) txt += `Id da Contratação (PNCP): ${pncpId}\n`;
+  txt += `\n`;
 
   txt += `PROPONENTE\n`;
   txt += `Razão Social: ${razao}\n`;

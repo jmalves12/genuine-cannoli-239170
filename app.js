@@ -236,7 +236,7 @@ const estado = {};
 let itensProposta = [];
 
 function itemPropostaVazio() {
-  return { codigo: '', descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '', link: '' };
+  return { codigo: '', descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '', link: '', imagemUrl: '' };
 }
 
 function escapeHtml(s) {
@@ -789,6 +789,7 @@ function exportarPacote() {
   const itensComDados = itensProposta.filter(it => it.descricao && it.descricao.trim());
   if (itensComDados.length > 0) {
     zip.file('00 - Carta Proposta.txt', textoAtualCartaProposta());
+    zip.file('00 - Pesquisa de Precos.html', gerarHtmlPesquisaPrecos());
   }
 
   zip.generateAsync({ type: 'blob' }).then(blob => {
@@ -1000,6 +1001,95 @@ function baixarCartaProposta() {
   const a = document.createElement('a');
   a.href = url;
   a.download = `Carta_Proposta_${razao.replace(/[^\w\-]+/g, '_')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── PESQUISA DE PREÇOS (links + fotos clicáveis) ──────────────
+// Monta uma página HTML autônoma com a descrição, marca, preço e
+// foto de cada item, onde a foto e o texto "Ver produto" são links
+// clicáveis para a página de compra encontrada na pesquisa. Serve
+// como registro visual de onde cada preço/proposta veio.
+function gerarHtmlPesquisaPrecos() {
+  const razao = document.getElementById('razao').value || '';
+  const data = new Date().toLocaleDateString('pt-BR');
+  const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
+
+  const cards = itens.map((it, i) => {
+    const qtd = parseFloat(it.quantidade) || 0;
+    const unit = parseFloat(it.valorUnitario) || 0;
+    const temLink = !!it.link;
+    const temImagem = !!it.imagemUrl;
+    const imagemHtml = temImagem
+      ? `<img src="${escapeHtml(it.imagemUrl)}" alt="${escapeHtml(it.descricao)}" loading="lazy">`
+      : `<div class="sem-foto">Sem foto disponível</div>`;
+    const imagemBloco = temLink
+      ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer" class="foto-link">${imagemHtml}</a>`
+      : imagemHtml;
+
+    return `
+    <div class="card">
+      ${imagemBloco}
+      <div class="card-corpo">
+        <div class="card-item">Item ${i + 1}${it.codigo ? ` (${escapeHtml(it.codigo)})` : ''}</div>
+        <div class="card-desc">${escapeHtml(it.descricao)}</div>
+        ${it.marca ? `<div class="card-marca">Marca/Fonte: ${escapeHtml(it.marca)}</div>` : ''}
+        <div class="card-precos">Qtd: ${qtd} ${escapeHtml(it.unidade || 'UN')} &nbsp;|&nbsp; Unit.: ${formatarMoeda(unit)} &nbsp;|&nbsp; Total: ${formatarMoeda(qtd * unit)}</div>
+        ${temLink ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer" class="card-ver-link">🔗 Ver produto / fonte do preço</a>` : `<div class="card-sem-link">Sem link de fonte cadastrado</div>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Pesquisa de Preços${razao ? ' - ' + razao : ''}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f0f4f8; color:#1a1a2e; margin:0; padding:24px; }
+  h1 { font-size:20px; color:#0d1f33; margin-bottom:4px; }
+  .meta { font-size:12px; color:#64748b; margin-bottom:24px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
+  .card { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.08); display:flex; flex-direction:column; }
+  .foto-link { display:block; background:#f1f5f9; }
+  .foto-link img { width:100%; height:160px; object-fit:contain; display:block; background:#fff; }
+  .sem-foto { width:100%; height:160px; display:flex; align-items:center; justify-content:center; background:#f1f5f9; color:#94a3b8; font-size:12px; }
+  .card-corpo { padding:12px 14px; display:flex; flex-direction:column; gap:4px; }
+  .card-item { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.03em; }
+  .card-desc { font-size:13px; font-weight:600; color:#1a1a2e; line-height:1.4; }
+  .card-marca { font-size:11.5px; color:#4a235a; }
+  .card-precos { font-size:11.5px; color:#0d1f33; margin-top:4px; }
+  .card-ver-link { margin-top:8px; font-size:12px; font-weight:700; color:#1a4a7a; text-decoration:none; }
+  .card-ver-link:hover { text-decoration:underline; }
+  .card-sem-link { margin-top:8px; font-size:11.5px; color:#94a3b8; font-style:italic; }
+</style>
+</head>
+<body>
+  <h1>🧾 Pesquisa de Preços${razao ? ' — ' + escapeHtml(razao) : ''}</h1>
+  <p class="meta">Gerado em ${data}. Clique na foto ou no link de cada item para abrir a página de compra usada como referência de preço.</p>
+  <div class="grid">
+    ${cards}
+  </div>
+</body>
+</html>`;
+}
+
+function baixarPesquisaPrecos() {
+  salvarDados();
+  const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
+  if (itens.length === 0) {
+    alert('⚠️ Preencha ao menos um item (com descrição) na tabela "Itens da Licitação" antes de gerar a pesquisa de preços.');
+    return;
+  }
+  const razao = document.getElementById('razao').value || 'empresa';
+  const html = gerarHtmlPesquisaPrecos();
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Pesquisa_Precos_${razao.replace(/[^\w\-]+/g, '_')}.html`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

@@ -1104,25 +1104,87 @@ function baixarPesquisaPrecos() {
 // compra (descrição, marca e link) como ficha de referência.
 function gerarHtmlFichasTecnicas() {
   const razao = document.getElementById('razao').value || '';
+  const orgao = document.getElementById('orgao').value || '';
   const data = new Date().toLocaleDateString('pt-BR');
   const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
 
+  // Transforma um bloco de texto "Rótulo: valor" (linha a linha) numa lista de especificações.
+  // Linhas sem ":" viram observações de texto corrido.
+  function parseEspecificacoes(texto) {
+    const linhas = texto.split('\n').map(l => l.trim()).filter(Boolean);
+    const specs = [];
+    const obs = [];
+    linhas.forEach(linha => {
+      const m = linha.match(/^([^:]{2,40}):\s*(.+)$/);
+      if (m && !/^https?:\/\//i.test(m[1])) {
+        specs.push({ rotulo: m[1].trim(), valor: m[2].trim() });
+      } else {
+        obs.push(linha);
+      }
+    });
+    return { specs, obs };
+  }
+
+  const sumarioItens = itens.map((it, i) =>
+    `<li><a href="#item-${i + 1}">Item ${i + 1}${it.codigo ? ` — Código ${escapeHtml(it.codigo)}` : ''} · ${escapeHtml(it.descricao)}</a></li>`
+  ).join('');
+
   const secoes = itens.map((it, i) => {
     const temFicha = !!(it.fichaTecnica && it.fichaTecnica.trim());
-    const conteudo = temFicha
-      ? escapeHtml(it.fichaTecnica).replace(/\n/g, '<br>')
-      : `Ficha técnica não localizada junto ao fabricante. Informações abaixo extraídas do próprio anúncio/página de compra utilizada como referência:<br><br>
-         <strong>Descrição do anúncio:</strong> ${escapeHtml(it.descricao)}<br>
-         ${it.marca ? `<strong>Marca/Fornecedor:</strong> ${escapeHtml(it.marca)}<br>` : ''}
-         ${it.link ? `<strong>Fonte:</strong> <a href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.link)}</a>` : '<em>Sem link de fonte cadastrado.</em>'}`;
+    const qtd = parseFloat(it.quantidade) || 0;
+    const unit = parseFloat(it.valorUnitario) || 0;
+    const temImagem = !!it.imagemUrl;
+
+    let corpoHtml;
+    if (temFicha) {
+      const { specs, obs } = parseEspecificacoes(it.fichaTecnica);
+      const tabelaSpecs = specs.length
+        ? `<table class="specs-table">${specs.map(s => `<tr><th>${escapeHtml(s.rotulo)}</th><td>${escapeHtml(s.valor)}</td></tr>`).join('')}</table>`
+        : '';
+      const obsHtml = obs.length
+        ? `<p class="specs-obs">${obs.map(escapeHtml).join('<br>')}</p>`
+        : '';
+      corpoHtml = tabelaSpecs + obsHtml;
+    } else {
+      const { specs, obs } = parseEspecificacoes(it.fichaTecnica || '');
+      const tabelaSpecs = specs.length
+        ? `<table class="specs-table">${specs.map(s => `<tr><th>${escapeHtml(s.rotulo)}</th><td>${escapeHtml(s.valor)}</td></tr>`).join('')}</table>`
+        : '';
+      const obsHtml = obs.length ? `<p class="specs-obs">${obs.map(escapeHtml).join('<br>')}</p>` : '';
+      corpoHtml = `
+        <p class="specs-intro">Ficha técnica do fabricante não localizada. Informações abaixo consolidadas a partir do próprio anúncio/página utilizada como referência de preço:</p>
+        ${tabelaSpecs}${obsHtml}
+        <table class="specs-table">
+          <tr><th>Descrição do anúncio</th><td>${escapeHtml(it.descricao)}</td></tr>
+          ${it.marca ? `<tr><th>Marca / Fornecedor</th><td>${escapeHtml(it.marca)}</td></tr>` : ''}
+        </table>`;
+    }
+
+    const fonteLinha = it.link
+      ? `<a class="fonte-link" href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer">🔗 Ver página de origem / fonte do preço</a>`
+      : `<span class="fonte-sem">Sem link de fonte cadastrado</span>`;
 
     return `
-    <div class="ficha">
-      <h2>Item ${i + 1}${it.codigo ? ` (${escapeHtml(it.codigo)})` : ''}</h2>
-      <div class="ficha-desc">${escapeHtml(it.descricao)}</div>
-      <div class="ficha-tag">${temFicha ? '📄 Ficha técnica do fabricante' : '📝 Ficha montada a partir do anúncio'}</div>
-      <div class="ficha-corpo">${conteudo}</div>
-    </div>`;
+    <section class="ficha" id="item-${i + 1}">
+      <div class="ficha-header">
+        <div class="ficha-header-txt">
+          <span class="ficha-numero">ITEM ${i + 1}${it.codigo ? ` &nbsp;·&nbsp; CÓD. ${escapeHtml(it.codigo)}` : ''}</span>
+          <h2>${escapeHtml(it.descricao)}</h2>
+          <div class="ficha-badges">
+            <span class="badge ${temFicha ? 'badge-oficial' : 'badge-anuncio'}">${temFicha ? '📄 Ficha do fabricante' : '📝 Compilada do anúncio'}</span>
+            ${it.marca ? `<span class="badge badge-marca">🏷️ ${escapeHtml(it.marca)}</span>` : ''}
+            ${qtd ? `<span class="badge badge-qtd">📦 Qtd.: ${qtd} ${escapeHtml(it.unidade || 'UN')}</span>` : ''}
+            ${unit ? `<span class="badge badge-preco">💰 ${formatarMoeda(unit)} / un.</span>` : ''}
+          </div>
+        </div>
+        ${temImagem ? `<a class="ficha-foto" href="${escapeHtml(it.link || it.imagemUrl)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(it.imagemUrl)}" alt="${escapeHtml(it.descricao)}" loading="lazy"></a>` : `<div class="ficha-foto ficha-sem-foto">Sem foto</div>`}
+      </div>
+      <div class="ficha-corpo">
+        <h3>Especificações técnicas</h3>
+        ${corpoHtml}
+      </div>
+      <div class="ficha-footer">${fonteLinha}</div>
+    </section>`;
   }).join('');
 
   return `<!DOCTYPE html>
@@ -1131,21 +1193,94 @@ function gerarHtmlFichasTecnicas() {
 <meta charset="UTF-8">
 <title>Fichas Técnicas${razao ? ' - ' + razao : ''}</title>
 <style>
-  body { font-family:'Segoe UI', Arial, sans-serif; background:#f0f4f8; color:#1a1a2e; margin:0; padding:24px; }
-  h1 { font-size:20px; color:#0d1f33; margin-bottom:4px; }
-  .meta { font-size:12px; color:#64748b; margin-bottom:24px; }
-  .ficha { background:#fff; border-radius:12px; padding:18px 20px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
-  .ficha h2 { font-size:14px; color:#0d1f33; margin-bottom:6px; }
-  .ficha-desc { font-size:12.5px; color:#334155; margin-bottom:8px; }
-  .ficha-tag { display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:3px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; margin-bottom:10px; }
-  .ficha-corpo { font-size:12.5px; line-height:1.6; color:#1a1a2e; border-top:1px solid #f1f5f9; padding-top:10px; }
-  .ficha-corpo a { color:#1a4a7a; }
+  :root{
+    --azul-escuro:#0d1f33; --azul:#1a4a7a; --azul-claro:#eaf1fb;
+    --cinza-texto:#334155; --cinza-claro:#64748b; --borda:#e2e8f0; --fundo:#f4f6f9;
+  }
+  * { box-sizing:border-box; }
+  body { font-family:'Segoe UI', Arial, sans-serif; background:var(--fundo); color:#1a1a2e; margin:0; padding:0 0 48px; }
+
+  .capa {
+    background:linear-gradient(135deg, var(--azul-escuro), var(--azul));
+    color:#fff; padding:40px 32px 32px; margin-bottom:28px;
+  }
+  .capa .kicker { font-size:11px; letter-spacing:.12em; text-transform:uppercase; opacity:.75; font-weight:600; }
+  .capa h1 { font-size:26px; margin:8px 0 4px; }
+  .capa .sub { font-size:13px; opacity:.9; margin:0; }
+  .capa .info-grid { display:flex; gap:28px; flex-wrap:wrap; margin-top:20px; font-size:12px; }
+  .capa .info-grid div b { display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; opacity:.7; margin-bottom:2px; font-weight:600; }
+
+  .sumario { max-width:1080px; margin:0 auto 28px; background:#fff; border:1px solid var(--borda); border-radius:10px; padding:18px 22px; }
+  .sumario h3 { margin:0 0 10px; font-size:13px; color:var(--azul-escuro); text-transform:uppercase; letter-spacing:.04em; }
+  .sumario ol { margin:0; padding-left:18px; columns:2; column-gap:32px; font-size:12px; line-height:1.9; }
+  .sumario a { color:var(--azul); text-decoration:none; }
+  .sumario a:hover { text-decoration:underline; }
+
+  .conteudo { max-width:1080px; margin:0 auto; padding:0 24px; }
+
+  .ficha { background:#fff; border:1px solid var(--borda); border-radius:12px; margin-bottom:22px; overflow:hidden; box-shadow:0 1px 3px rgba(13,31,51,0.06); page-break-inside:avoid; }
+  .ficha-header { display:flex; gap:20px; padding:20px 24px; border-bottom:1px solid var(--borda); align-items:flex-start; }
+  .ficha-header-txt { flex:1; min-width:0; }
+  .ficha-numero { font-size:10.5px; font-weight:700; letter-spacing:.06em; color:var(--azul); text-transform:uppercase; }
+  .ficha-header h2 { font-size:16px; color:var(--azul-escuro); margin:6px 0 10px; line-height:1.35; }
+  .ficha-badges { display:flex; flex-wrap:wrap; gap:6px; }
+  .badge { font-size:10.5px; font-weight:600; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+  .badge-oficial { background:#dcfce7; color:#166534; }
+  .badge-anuncio { background:#fef3c7; color:#92400e; }
+  .badge-marca { background:#ede9fe; color:#5b21b6; }
+  .badge-qtd { background:var(--azul-claro); color:var(--azul); }
+  .badge-preco { background:#e0f2fe; color:#075985; }
+
+  .ficha-foto { flex-shrink:0; width:140px; height:140px; border-radius:10px; overflow:hidden; background:var(--fundo); border:1px solid var(--borda); display:block; }
+  .ficha-foto img { width:100%; height:100%; object-fit:contain; background:#fff; }
+  .ficha-sem-foto { display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:11px; text-align:center; padding:8px; }
+
+  .ficha-corpo { padding:18px 24px; }
+  .ficha-corpo h3 { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--cinza-claro); margin:0 0 12px; font-weight:700; }
+  .specs-table { width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:10px; }
+  .specs-table tr:not(:last-child) th, .specs-table tr:not(:last-child) td { border-bottom:1px solid #f1f5f9; }
+  .specs-table th { text-align:left; color:var(--cinza-claro); font-weight:600; padding:7px 14px 7px 0; width:190px; vertical-align:top; }
+  .specs-table td { padding:7px 0; color:#1a1a2e; vertical-align:top; }
+  .specs-intro { font-size:12px; color:var(--cinza-claro); font-style:italic; margin:0 0 12px; }
+  .specs-obs { font-size:12.5px; color:var(--cinza-texto); line-height:1.7; margin:6px 0 0; }
+
+  .ficha-footer { padding:12px 24px; background:var(--fundo); border-top:1px solid var(--borda); }
+  .fonte-link { font-size:12px; font-weight:700; color:var(--azul); text-decoration:none; }
+  .fonte-link:hover { text-decoration:underline; }
+  .fonte-sem { font-size:11.5px; color:#94a3b8; font-style:italic; }
+
+  @media print {
+    .capa { background:var(--azul-escuro) !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .sumario { break-after:page; }
+    .ficha { break-inside:avoid; box-shadow:none; }
+  }
+  @media (max-width:640px) {
+    .ficha-header { flex-direction:column-reverse; }
+    .ficha-foto { width:100%; height:180px; }
+    .sumario ol { columns:1; }
+  }
 </style>
 </head>
 <body>
-  <h1>📋 Fichas Técnicas${razao ? ' — ' + escapeHtml(razao) : ''}</h1>
-  <p class="meta">Gerado em ${data}. Ficha do fabricante quando disponível; caso contrário, montada com as informações do próprio anúncio/fonte do preço.</p>
-  ${secoes}
+  <div class="capa">
+    <div class="kicker">Anexo técnico da proposta comercial</div>
+    <h1>📋 Fichas Técnicas dos Itens</h1>
+    <p class="sub">${escapeHtml(razao || 'Proposta comercial')}${orgao ? ' — apresentado a ' + escapeHtml(orgao) : ''}</p>
+    <div class="info-grid">
+      <div><b>Data de emissão</b>${data}</div>
+      <div><b>Total de itens</b>${itens.length}</div>
+      <div><b>Fonte das fichas</b>Fabricante, quando disponível; anúncio/loja de origem nos demais casos</div>
+    </div>
+  </div>
+
+  <div class="sumario">
+    <h3>Índice de itens</h3>
+    <ol>${sumarioItens}</ol>
+  </div>
+
+  <div class="conteudo">
+    ${secoes}
+  </div>
 </body>
 </html>`;
 }

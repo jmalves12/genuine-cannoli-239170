@@ -236,7 +236,7 @@ const estado = {};
 let itensProposta = [];
 
 function itemPropostaVazio() {
-  return { codigo: '', descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '', link: '', imagemUrl: '' };
+  return { codigo: '', descricao: '', marca: '', unidade: 'UN', quantidade: '', valorUnitario: '', link: '', imagemUrl: '', fichaTecnica: '' };
 }
 
 function escapeHtml(s) {
@@ -790,6 +790,7 @@ function exportarPacote() {
   if (itensComDados.length > 0) {
     zip.file('00 - Carta Proposta.txt', textoAtualCartaProposta());
     zip.file('00 - Pesquisa de Precos.html', gerarHtmlPesquisaPrecos());
+    zip.file('00 - Fichas Tecnicas.html', gerarHtmlFichasTecnicas());
   }
 
   zip.generateAsync({ type: 'blob' }).then(blob => {
@@ -1090,6 +1091,79 @@ function baixarPesquisaPrecos() {
   const a = document.createElement('a');
   a.href = url;
   a.download = `Pesquisa_Precos_${razao.replace(/[^\w\-]+/g, '_')}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── FICHAS TÉCNICAS ────────────────────────────────────────────
+// Monta uma página HTML com a ficha técnica de cada item: usa a
+// ficha do fabricante quando disponível (campo fichaTecnica), ou,
+// na ausência dela, as informações do próprio anúncio/página de
+// compra (descrição, marca e link) como ficha de referência.
+function gerarHtmlFichasTecnicas() {
+  const razao = document.getElementById('razao').value || '';
+  const data = new Date().toLocaleDateString('pt-BR');
+  const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
+
+  const secoes = itens.map((it, i) => {
+    const temFicha = !!(it.fichaTecnica && it.fichaTecnica.trim());
+    const conteudo = temFicha
+      ? escapeHtml(it.fichaTecnica).replace(/\n/g, '<br>')
+      : `Ficha técnica não localizada junto ao fabricante. Informações abaixo extraídas do próprio anúncio/página de compra utilizada como referência:<br><br>
+         <strong>Descrição do anúncio:</strong> ${escapeHtml(it.descricao)}<br>
+         ${it.marca ? `<strong>Marca/Fornecedor:</strong> ${escapeHtml(it.marca)}<br>` : ''}
+         ${it.link ? `<strong>Fonte:</strong> <a href="${escapeHtml(it.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(it.link)}</a>` : '<em>Sem link de fonte cadastrado.</em>'}`;
+
+    return `
+    <div class="ficha">
+      <h2>Item ${i + 1}${it.codigo ? ` (${escapeHtml(it.codigo)})` : ''}</h2>
+      <div class="ficha-desc">${escapeHtml(it.descricao)}</div>
+      <div class="ficha-tag">${temFicha ? '📄 Ficha técnica do fabricante' : '📝 Ficha montada a partir do anúncio'}</div>
+      <div class="ficha-corpo">${conteudo}</div>
+    </div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Fichas Técnicas${razao ? ' - ' + razao : ''}</title>
+<style>
+  body { font-family:'Segoe UI', Arial, sans-serif; background:#f0f4f8; color:#1a1a2e; margin:0; padding:24px; }
+  h1 { font-size:20px; color:#0d1f33; margin-bottom:4px; }
+  .meta { font-size:12px; color:#64748b; margin-bottom:24px; }
+  .ficha { background:#fff; border-radius:12px; padding:18px 20px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+  .ficha h2 { font-size:14px; color:#0d1f33; margin-bottom:6px; }
+  .ficha-desc { font-size:12.5px; color:#334155; margin-bottom:8px; }
+  .ficha-tag { display:inline-block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:3px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; margin-bottom:10px; }
+  .ficha-corpo { font-size:12.5px; line-height:1.6; color:#1a1a2e; border-top:1px solid #f1f5f9; padding-top:10px; }
+  .ficha-corpo a { color:#1a4a7a; }
+</style>
+</head>
+<body>
+  <h1>📋 Fichas Técnicas${razao ? ' — ' + escapeHtml(razao) : ''}</h1>
+  <p class="meta">Gerado em ${data}. Ficha do fabricante quando disponível; caso contrário, montada com as informações do próprio anúncio/fonte do preço.</p>
+  ${secoes}
+</body>
+</html>`;
+}
+
+function baixarFichasTecnicas() {
+  salvarDados();
+  const itens = itensProposta.filter(it => it.descricao && it.descricao.trim());
+  if (itens.length === 0) {
+    alert('⚠️ Preencha ao menos um item (com descrição) na tabela "Itens da Licitação" antes de gerar as fichas técnicas.');
+    return;
+  }
+  const razao = document.getElementById('razao').value || 'empresa';
+  const html = gerarHtmlFichasTecnicas();
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Fichas_Tecnicas_${razao.replace(/[^\w\-]+/g, '_')}.html`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

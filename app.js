@@ -4,15 +4,11 @@
 // ============================================================
 
 // ── PERSISTÊNCIA DE ARQUIVOS (Firebase Storage) ───────────────
-// Os arquivos anexados são enviados para uma pasta compartilhada no
-// Firebase Storage (dados-compartilhados/{itemId}/{nome}), a mesma
-// para qualquer usuário autenticado — assim, qualquer login vê e
-// edita o mesmo conjunto de documentos, como uma conta única de
-// equipe, e não uma área privada por usuário.
-const WORKSPACE_ID = 'dados-compartilhados';
-
+// Os arquivos anexados são enviados para uma pasta própria de cada
+// usuário no Firebase Storage (usuarios/{uid}/{itemId}/{nome}) —
+// cada login só vê e edita os documentos da própria conta.
 function caminhoStorage(itemId, nome) {
-  return `${WORKSPACE_ID}/${itemId}/${Date.now()}_${nome}`;
+  return `usuarios/${usuarioAtual.uid}/${itemId}/${Date.now()}_${nome}`;
 }
 
 async function uploadArquivoStorage(itemId, file) {
@@ -526,7 +522,7 @@ function salvarDados() {
   }
 
   if (usuarioAtual) {
-    db.collection('workspace').doc(WORKSPACE_ID).set(dados, { merge: true })
+    db.collection('usuarios').doc(usuarioAtual.uid).set(dados, { merge: true })
       .then(() => console.log('☁️ Dados sincronizados com a nuvem'))
       .catch(e => console.warn('⚠️ Não foi possível sincronizar com a nuvem:', e));
   }
@@ -572,7 +568,7 @@ async function carregarDados() {
 
     if (usuarioAtual) {
       try {
-        const snap = await db.collection('workspace').doc(WORKSPACE_ID).get();
+        const snap = await db.collection('usuarios').doc(usuarioAtual.uid).get();
         if (snap.exists) {
           dados = snap.data();
           console.log('☁️ Dados carregados da nuvem');
